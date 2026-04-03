@@ -1,23 +1,24 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"io/ioutil"
+	"strings"
 )
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	// 专门处理飞书的首次验证请求
-	var data map[string]interface{}
-	json.NewDecoder(r.Body).Decode(&data)
-	
-	if challenge, ok := data["challenge"]; ok {
+	body, _ := ioutil.ReadAll(r.Body)
+	content := string(body)
+
+	// 如果飞书发来了 challenge 暗号，我们就把它原样返回去
+	if strings.Contains(content, "challenge") {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, "{\"challenge\":\"%s\"}", challenge)
+		fmt.Fprintf(w, content)
 		return
 	}
-	
-	fmt.Fprint(w, "Hello! Bot is running.")
+
+	fmt.Fprintf(w, "Hello! Bot is alive!")
 }
 
 func main() {
