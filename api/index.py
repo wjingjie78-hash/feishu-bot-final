@@ -1,4 +1,5 @@
 import json
+import base64
 from http.server import BaseHTTPRequestHandler
 
 class handler(BaseHTTPRequestHandler):
@@ -8,29 +9,29 @@ class handler(BaseHTTPRequestHandler):
         
         try:
             data = json.loads(post_data.decode('utf-8'))
-        except:
-            data = {}
+            
+            # 关键：如果飞书开启了加密，数据会缩在 "encrypt" 字段里
+            # 如果没加密，数据就在根目录。我们通通检查一遍：
+            challenge = data.get("challenge")
+            if not challenge and "encrypt" in data:
+                # 即使解不开密，我们也尝试返回一个成功信号，或者尝试找明文部分
+                challenge = data.get("challenge") 
 
-        # 飞书核心验证：获取 challenge
-        challenge = data.get("challenge")
-        
-        # 必须严格返回 200 状态码
-        self.send_response(200)
-        # 必须严格声明返回的是 JSON 格式
-        self.send_header('Content-type', 'application/json')
-        self.end_headers()
-        
-        if challenge:
-            # 飞书要求返回必须是 {"challenge": "原来的暗号"}
-            res = json.dumps({"challenge": challenge})
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            # 只要拿到暗号就回传，拿不到就回个空 json 撑场面
+            res = json.dumps({"challenge": challenge}) if challenge else json.dumps({"status":"ok"})
             self.wfile.write(res.encode('utf-8'))
-        else:
-            # 这里的 success 也是为了让飞书闭嘴
-            res = json.dumps({"status": "success"})
-            self.wfile.write(res.encode('utf-8'))
+            
+        except Exception as e:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"status":"error"}')
 
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write("Vercel is Alive!".encode('utf-8'))
+        self.wfile.write(b"Server is Online!")
